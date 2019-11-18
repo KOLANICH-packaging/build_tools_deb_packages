@@ -1,0 +1,29 @@
+From 51fb437d3312e04e6dff50cdd7a1f06cf0f32fb2 Mon Sep 17 00:00:00 2001
+From: KOLANICH <KOLANICH@users.noreply.github.com>
+Date: Mon, 10 Feb 2020 00:00:00 +0000
+Subject: [PATCH 4/4] Fixed UB in string_piece.cc .
+
+---
+ string_piece.cc | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/string_piece.cc b/string_piece.cc
+index e739219..0ad06c4 100644
+--- a/string_piece.cc
++++ b/string_piece.cc
+@@ -36,9 +36,9 @@ bool operator==(const StringPiece& x, const StringPiece& y) {
+   size_t len = x.size();
+   if (len >= sizeof(uint64_t)) {
+     len -= sizeof(uint64_t);
+-    uint64_t xt = *reinterpret_cast<const uint64_t*>(x.data() + len);
+-    uint64_t yt = *reinterpret_cast<const uint64_t*>(y.data() + len);
+-    if (xt != yt)
++    const char* xptr = reinterpret_cast<const char*>(x.data() + len);
++    const char* yptr = reinterpret_cast<const char*>(y.data() + len);
++    if (StringPiece::wordmemcmp(xptr, yptr, 8))
+       return false;
+   }
+   return StringPiece::wordmemcmp(x.data(), y.data(), len) == 0;
+-- 
+2.20.1
+

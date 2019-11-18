@@ -1,0 +1,25 @@
+From 3a81461e59a037292eeb6fa35a3273535f8617f9 Mon Sep 17 00:00:00 2001
+From: KOLANICH <KOLANICH@users.noreply.github.com>
+Date: Thu, 7 Nov 2019 08:45:18 +0000
+Subject: [PATCH 2/2] Virtualized _parse_positional
+
+---
+ include/CLI/App.hpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/CLI/App.hpp b/include/CLI/App.hpp
+index 37bdb36..8bac041 100644
+--- a/include/CLI/App.hpp
++++ b/include/CLI/App.hpp
+@@ -2431,7 +2431,7 @@ class App {
+     /// Parse a positional, go up the tree to check
+     /// @param haltOnSubcommand if set to true the operation will not process subcommands merely return false
+     /// Return true if the positional was used false otherwise
+-    bool _parse_positional(std::vector<std::string> &args, bool haltOnSubcommand) {
++    virtual bool _parse_positional(std::vector<std::string> &args, bool haltOnSubcommand) {
+ 
+         const std::string &positional = args.back();
+ 
+-- 
+2.20.1
+

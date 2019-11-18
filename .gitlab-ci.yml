@@ -1,0 +1,46 @@
+image: registry.gitlab.com/kolanich-subgroups/docker-images/cpp_build_tools:latest
+
+stages:
+  - build
+  - trigger
+
+pages:
+  tags:
+    - shared
+    - linux
+  stage: build
+  variables:
+    GIT_DEPTH: "1"
+    PYTHONUSERBASE: "${CI_PROJECT_DIR}/python_user_packages"
+    DEBFULLNAME: "${GITLAB_USER_LOGIN}"
+    #DEBEMAIL: "${GITLAB_USER_EMAIL}"
+
+  before_script:
+    - export PATH="$PATH:$PYTHONUSERBASE/bin" # don't move into `variables`
+    - mkdir -p ./public
+    - "export GPG_KEY_FINGERPRINT=`echo $GPG_KEY | base64 -d | gpg --list-packets | grep -iPo '(?<=keyid: )[a-f0-9]+'`"
+    - echo $GPG_KEY_FINGERPRINT
+    - echo $GPG_KEY | base64 -d | gpg --import
+    - export GPG_KEY=WIPED
+    - gpg --export $GPG_KEY_FINGERPRINT > ./public/public.gpg
+    - gpg --list-keys $GPG_KEY_FINGERPRINT
+
+  cache:
+    paths:
+      - "$PYTHONUSERBASE"
+
+  script:
+    - python3 ./BuildDeb.py
+
+  artifacts:
+    paths:
+      - public
+
+update_docker_image:
+  only:
+    - master
+  stage: trigger
+  allow_failure: true
+  trigger:
+    project: KOLANICH-subgroups/docker-images/cpp_build_tools
+    strategy: depend

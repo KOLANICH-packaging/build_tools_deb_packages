@@ -1,0 +1,260 @@
+From a20c8193dbeb3efc1e568abbb5b489cd8e995a08 Mon Sep 17 00:00:00 2001
+From: KOLANICH <KOLANICH@users.noreply.github.com>
+Date: Mon, 28 Oct 2019 00:00:00 +0000
+Subject: [PATCH 1/2] Started using strings to prepare to using CLI11.
+
+---
+ eval.cc  |  2 +-
+ flags.cc | 40 ++++++++++++++++++++--------------------
+ flags.h  | 18 +++++++++---------
+ main.cc  |  6 +++---
+ ninja.cc | 20 ++++++++++----------
+ 5 files changed, 43 insertions(+), 43 deletions(-)
+
+diff --git a/eval.cc b/eval.cc
+index 8de8f41..f24cd47 100644
+--- a/eval.cc
++++ b/eval.cc
+@@ -445,7 +445,7 @@ void Evaluator::EvalInclude(const IncludeStmt* stmt) {
+     }
+ 
+     for (const string& fname : *files) {
+-      if (!stmt->should_exist && g_flags.ignore_optional_include_pattern &&
++      if (!stmt->should_exist && g_flags.ignore_optional_include_pattern.size() &&
+           Pattern(g_flags.ignore_optional_include_pattern).Match(fname)) {
+         continue;
+       }
+diff --git a/flags.cc b/flags.cc
+index 148d59a..58e585f 100644
+--- a/flags.cc
++++ b/flags.cc
+@@ -27,22 +27,22 @@ Flags g_flags;
+ static bool ParseCommandLineOptionWithArg(StringPiece option,
+                                           char* argv[],
+                                           int* index,
+-                                          const char** out_arg) {
++                                          std::string &out_arg) {
+   const char* arg = argv[*index];
+   if (!HasPrefix(arg, option))
+     return false;
+   if (arg[option.size()] == '\0') {
+     ++*index;
+-    *out_arg = argv[*index];
++    out_arg = argv[*index];
+     return true;
+   }
+   if (arg[option.size()] == '=') {
+-    *out_arg = arg + option.size() + 1;
++    out_arg = arg + option.size() + 1;
+     return true;
+   }
+   // E.g, -j999
+   if (option.size() == 2) {
+-    *out_arg = arg + option.size();
++    out_arg = arg + option.size();
+     return true;
+   }
+   return false;
+@@ -51,8 +51,8 @@ static bool ParseCommandLineOptionWithArg(StringPiece option,
+ void Flags::Parse(int argc, char** argv) {
+   subkati_args.push_back(argv[0]);
+   num_jobs = num_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+-  const char* num_jobs_str;
+-  const char* writable_str;
++  std::string num_jobs_str{""};
++  std::string writable_str{""};
+ 
+   if (const char* makeflags = getenv("MAKEFLAGS")) {
+     for (StringPiece tok : WordScanner(makeflags)) {
+@@ -134,37 +134,37 @@ void Flags::Parse(int argc, char** argv) {
+       werror_phony_looks_real = true;
+     } else if (!strcmp(arg, "--werror_writable")) {
+       werror_writable = true;
+-    } else if (ParseCommandLineOptionWithArg("-j", argv, &i, &num_jobs_str)) {
+-      num_jobs = strtol(num_jobs_str, NULL, 10);
++    } else if (ParseCommandLineOptionWithArg("-j", argv, &i, num_jobs_str)) {
++      num_jobs = strtol(num_jobs_str.data(), NULL, 10);
+       if (num_jobs <= 0) {
+-        ERROR("Invalid -j flag: %s", num_jobs_str);
++        ERROR("Invalid -j flag: %s", num_jobs_str.data());
+       }
+     } else if (ParseCommandLineOptionWithArg("--remote_num_jobs", argv, &i,
+-                                             &num_jobs_str)) {
+-      remote_num_jobs = strtol(num_jobs_str, NULL, 10);
++                                             num_jobs_str)) {
++      remote_num_jobs = strtol(num_jobs_str.data(), NULL, 10);
+       if (remote_num_jobs <= 0) {
+-        ERROR("Invalid -j flag: %s", num_jobs_str);
++        ERROR("Invalid -j flag: %s", num_jobs_str.data());
+       }
+     } else if (ParseCommandLineOptionWithArg("--ninja_suffix", argv, &i,
+-                                             &ninja_suffix)) {
++                                             ninja_suffix)) {
+     } else if (ParseCommandLineOptionWithArg("--ninja_dir", argv, &i,
+-                                             &ninja_dir)) {
++                                             ninja_dir)) {
+     } else if (!strcmp(arg, "--use_find_emulator")) {
+       use_find_emulator = true;
+     } else if (ParseCommandLineOptionWithArg("--goma_dir", argv, &i,
+-                                             &goma_dir)) {
++                                             goma_dir)) {
+     } else if (ParseCommandLineOptionWithArg(
+                    "--ignore_optional_include", argv, &i,
+-                   &ignore_optional_include_pattern)) {
++                   ignore_optional_include_pattern)) {
+     } else if (ParseCommandLineOptionWithArg("--ignore_dirty", argv, &i,
+-                                             &ignore_dirty_pattern)) {
++                                             ignore_dirty_pattern)) {
+     } else if (ParseCommandLineOptionWithArg("--no_ignore_dirty", argv, &i,
+-                                             &no_ignore_dirty_pattern)) {
++                                             no_ignore_dirty_pattern)) {
+     } else if (ParseCommandLineOptionWithArg("--writable", argv, &i,
+-                                             &writable_str)) {
++                                             writable_str)) {
+       writable.push_back(writable_str);
+     } else if (ParseCommandLineOptionWithArg("--default_pool", argv, &i,
+-                                             &default_pool)) {
++                                             default_pool)) {
+     } else if (arg[0] == '-') {
+       ERROR("Unknown flag: %s", arg);
+     } else {
+diff --git a/flags.h b/flags.h
+index ee16c4f..6e95b34 100644
+--- a/flags.h
++++ b/flags.h
+@@ -56,18 +56,18 @@ struct Flags {
+   bool warn_phony_looks_real;
+   bool werror_phony_looks_real;
+   bool werror_writable;
+-  const char* default_pool;
+-  const char* goma_dir;
+-  const char* ignore_dirty_pattern;
+-  const char* no_ignore_dirty_pattern;
+-  const char* ignore_optional_include_pattern;
+-  const char* makefile;
+-  const char* ninja_dir;
+-  const char* ninja_suffix;
++  std::string default_pool{""};
++  std::string goma_dir{""};
++  std::string ignore_dirty_pattern{""};
++  std::string no_ignore_dirty_pattern{""};
++  std::string ignore_optional_include_pattern{""};
++  std::string makefile{""};
++  std::string ninja_dir{"."};
++  std::string ninja_suffix{""};
+   int num_cpus;
+   int num_jobs;
+   int remote_num_jobs;
+-  vector<const char*> subkati_args;
++  vector<std::string> subkati_args;
+   vector<Symbol> targets;
+   vector<StringPiece> cl_vars;
+   vector<string> writable;
+diff --git a/main.cc b/main.cc
+index f2360cf..0155457 100644
+--- a/main.cc
++++ b/main.cc
+@@ -240,7 +240,7 @@ static int Run(const vector<Symbol>& targets,
+   MakefileCacheManager* cache_mgr = NewMakefileCacheManager();
+ 
+   Intern("MAKEFILE_LIST")
+-      .SetGlobalVar(new SimpleVar(StringPrintf(" %s", g_flags.makefile),
++      .SetGlobalVar(new SimpleVar(StringPrintf(" %s", g_flags.makefile.data()),
+                                   VarOrigin::FILE));
+   for (char** p = environ; *p; p++) {
+     SetVar(*p, VarOrigin::ENVIRONMENT);
+@@ -324,7 +324,7 @@ static int Run(const vector<Symbol>& targets,
+ }
+ 
+ static void FindFirstMakefie() {
+-  if (g_flags.makefile != NULL)
++  if (g_flags.makefile.size())
+     return;
+   if (Exists("GNUmakefile")) {
+     g_flags.makefile = "GNUmakefile";
+@@ -359,7 +359,7 @@ int main(int argc, char* argv[]) {
+   }
+   g_flags.Parse(argc, argv);
+   FindFirstMakefie();
+-  if (g_flags.makefile == NULL)
++  if (!g_flags.makefile.size())
+     ERROR("*** No targets specified and no makefile found.");
+   // This depends on command line flags.
+   if (g_flags.use_find_emulator)
+diff --git a/ninja.cc b/ninja.cc
+index 1a8332e..b9b71db 100644
+--- a/ninja.cc
++++ b/ninja.cc
+@@ -188,8 +188,8 @@ class NinjaGenerator {
+     shell_flags_ = EscapeNinja(ev->GetShellFlag());
+     const string use_goma_str = ev->EvalVar(Intern("USE_GOMA"));
+     use_goma_ = !(use_goma_str.empty() || use_goma_str == "false");
+-    if (g_flags.goma_dir)
+-      gomacc_ = StringPrintf("%s/gomacc ", g_flags.goma_dir);
++    if (g_flags.goma_dir.size())
++      gomacc_ = StringPrintf("%s/gomacc ", g_flags.goma_dir.data());
+ 
+     GetExecutablePath(&kati_binary_);
+   }
+@@ -213,9 +213,9 @@ class NinjaGenerator {
+   }
+ 
+   static string GetFilename(const char* fmt) {
+-    string r = g_flags.ninja_dir ? g_flags.ninja_dir : ".";
++    string r = g_flags.ninja_dir;
+     r += '/';
+-    r += StringPrintf(fmt, g_flags.ninja_suffix ? g_flags.ninja_suffix : "");
++    r += StringPrintf(fmt, g_flags.ninja_suffix.data());
+     return r;
+   }
+ 
+@@ -433,7 +433,7 @@ class NinjaGenerator {
+         cmd_buf->resize(cmd_begin);
+         command_count -= 1;
+         continue;
+-      } else if (g_flags.goma_dir) {
++      } else if (g_flags.goma_dir.size()) {
+         size_t pos = GetGomaccPosForAndroidCompileCommand(translated);
+         if (pos != string::npos) {
+           cmd_buf->insert(cmd_start + pos, gomacc_);
+@@ -450,7 +450,7 @@ class NinjaGenerator {
+       if (needs_subshell)
+         *cmd_buf += " )";
+     }
+-    return (use_goma_ || g_flags.remote_num_jobs || g_flags.goma_dir) &&
++    return (use_goma_ || g_flags.remote_num_jobs || g_flags.goma_dir.size()) &&
+            !use_gomacc;
+   }
+ 
+@@ -580,7 +580,7 @@ class NinjaGenerator {
+       if (pool != "none") {
+         *o << " pool = " << pool << "\n";
+       }
+-    } else if (g_flags.default_pool && rule_name != "phony") {
++    } else if (g_flags.default_pool.size() && rule_name != "phony") {
+       *o << " pool = " << g_flags.default_pool << "\n";
+     } else if (use_local_pool) {
+       *o << " pool = local_pool\n";
+@@ -614,8 +614,8 @@ class NinjaGenerator {
+     }
+ 
+     if (!g_flags.no_ninja_prelude) {
+-      if (g_flags.ninja_dir) {
+-        fprintf(fp_, "builddir = %s\n\n", g_flags.ninja_dir);
++      if (g_flags.ninja_dir.size()) {
++        fprintf(fp_, "builddir = %s\n\n", g_flags.ninja_dir.data());
+       }
+ 
+       fprintf(fp_, "pool local_pool\n");
+@@ -708,7 +708,7 @@ class NinjaGenerator {
+     fprintf(fp, "exec ninja -f %s ", GetNinjaFilename().c_str());
+     if (g_flags.remote_num_jobs > 0) {
+       fprintf(fp, "-j%d ", g_flags.remote_num_jobs);
+-    } else if (g_flags.goma_dir) {
++    } else if (g_flags.goma_dir.size()) {
+       fprintf(fp, "-j500 ");
+     }
+     fprintf(fp, "\"$@\"\n");
+-- 
+2.20.1
+

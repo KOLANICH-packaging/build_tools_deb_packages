@@ -1,0 +1,24 @@
+From 92cd994ebbf7e9225179214edf8b07b1c534c762 Mon Sep 17 00:00:00 2001
+From: KOLANICH <KOLANICH@users.noreply.github.com>
+Date: Mon, 13 Jan 2020 00:00:00 +0000
+Subject: [PATCH 1/4] Removed optimization to the current CPU
+
+---
+ Makefile.ckati | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/Makefile.ckati b/Makefile.ckati
+index 6337590..ce3d4ad 100644
+--- a/Makefile.ckati
++++ b/Makefile.ckati
+@@ -72,7 +72,6 @@ KATI_CXX_TEST_EXES := $(patsubst $(KATI_INTERMEDIATES_PATH)/%.o,$(KATI_BIN_PATH)
+ 
+ KATI_CXXFLAGS := -g -W -Wall -MMD -MP
+ KATI_CXXFLAGS += -O -DNOLOG
+-KATI_CXXFLAGS += -march=native
+ #KATI_CXXFLAGS += -pg
+ 
+ ifeq ($(shell uname),Linux)
+-- 
+2.20.1
+
